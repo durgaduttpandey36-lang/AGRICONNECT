@@ -18,6 +18,9 @@ from locations import LOCATIONS
 import os
 from werkzeug.utils import secure_filename
 
+import resend
+
+
 
 app = Flask(__name__)
 
@@ -27,6 +30,7 @@ app.config["ANNASETU_ENDPOINTS"] = {
 }
 
 app.secret_key = os.environ.get("SECRET_KEY", "default_secret_key_123")
+resend.api_key = os.environ.get("RESEND_API_KEY")
 
 SENDER_EMAIL = os.environ.get("SENDER_EMAIL")
 SENDER_PASSWORD = os.environ.get("SENDER_PASSWORD")
@@ -140,7 +144,6 @@ def forgot_password():
     return render_template(
         "forgot-password.html"
     )
-
 
 @app.route("/register", methods=["GET", "POST"])
 def register():
@@ -365,159 +368,61 @@ def register():
             otp
         )
 
-        msg = EmailMessage()
-
-        msg["Subject"] = (
-            "AgriConnect - Email Verification OTP"
-        )
-
-        msg["From"] = SENDER_EMAIL
-
-        msg["To"] = registration_data["email"]
-
-        msg.set_content(
-            f"""
-Hello {registration_data["name"]},
-
-Your AgriConnect verification OTP is:
-
-{otp}
-
-Please do not share this OTP with anyone.
-
-Thank you,
-AgriConnect Team
-"""
-        )
-
         try:
+            print("Sending OTP via Resend API...")
 
-            print(
-                "Connecting to Gmail..."
-            )
+            params = {
+                "from": "AgriConnect <onboarding@resend.dev>",
+                "to": [registration_data["email"]],
+                "subject": "AgriConnect - Email Verification OTP",
+                "html": f"""
+                <p>Hello <b>{registration_data['name']}</b>,</p>
+                <p>Your AgriConnect verification OTP is:</p>
+                <h2 style="color: #2b8a3e; letter-spacing: 2px;">{otp}</h2>
+                <p>Please do not share this OTP with anyone.</p>
+                <br>
+                <p>Thank you,<br>AgriConnect Team</p>
+                """,
+            }
 
-            with smtplib.SMTP(
-                "smtp.gmail.com",
-                587,
-                timeout=30
-            ) as smtp:
-
-                smtp.ehlo()
-                smtp.starttls()
-                smtp.ehlo()
-
-                print(
-                    "Connected to Gmail"
-                )
-
-                smtp.login(
-                    SENDER_EMAIL,
-                    SENDER_PASSWORD
-                )
-
-                print(
-                    "Gmail login successful"
-                )
-
-                smtp.send_message(msg)
-
-                print(
-                    "OTP sent successfully"
-                )
+            response = resend.Emails.send(params)
+            print("Resend response:", response)
 
             return render_template(
                 "verify-otp.html",
                 message="OTP sent successfully. Please check your email."
             )
 
-        except smtplib.SMTPAuthenticationError as e:
-
-            print(
-                "\nGmail Authentication Error:"
-            )
-
-            print(e)
-
-            state = registration_data["state"]
-
-            district = registration_data["district"]
-
-            return render_template(
-                "register.html",
-
-                states=sorted(
-                    LOCATIONS.keys()
-                ),
-
-                districts=sorted(
-                    LOCATIONS.get(
-                        state,
-                        {}
-                    ).keys()
-                ),
-
-                markets=LOCATIONS.get(
-                    state,
-                    {}
-                ).get(
-                    district,
-                    []
-                ),
-
-                selected_state=state,
-
-                selected_district=district,
-
-                message=(
-                    "Gmail login failed. "
-                    "Please check your Gmail App Password."
-                )
-            )
-
         except Exception as e:
-
-            print(
-                "\nEmail Error:"
-            )
-
-            print(
-                repr(e)
-            )
+            print("\nEmail Error:")
+            print(repr(e))
 
             state = registration_data["state"]
-
             district = registration_data["district"]
+
+            markets = LOCATIONS.get(
+                state,
+                {}
+            ).get(
+                district,
+                []
+            )
 
             return render_template(
                 "register.html",
-
                 states=sorted(
                     LOCATIONS.keys()
                 ),
-
                 districts=sorted(
                     LOCATIONS.get(
                         state,
                         {}
                     ).keys()
                 ),
-
-                markets=LOCATIONS.get(
-                    state,
-                    {}
-                ).get(
-                    district,
-                    []
-                ),
-
+                markets=markets,
                 selected_state=state,
-
                 selected_district=district,
-
-                message=(
-                    "Unable to send OTP. "
-                    "Check terminal for error."
-                )
+                message="Unable to send OTP. Please try again."
             )
 
     return redirect("/register")
