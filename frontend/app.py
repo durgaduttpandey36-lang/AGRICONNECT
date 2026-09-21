@@ -396,11 +396,15 @@ AgriConnect Team
                 "Connecting to Gmail..."
             )
 
-            with smtplib.SMTP_SSL(
+            with smtplib.SMTP(
                 "smtp.gmail.com",
-                465,
+                587,
                 timeout=30
             ) as smtp:
+
+                smtp.ehlo()
+                smtp.starttls()
+                smtp.ehlo()
 
                 print(
                     "Connected to Gmail"
@@ -517,8 +521,6 @@ AgriConnect Team
             )
 
     return redirect("/register")
-
-
 
 
 @app.route(
