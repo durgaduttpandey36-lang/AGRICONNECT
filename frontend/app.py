@@ -24,21 +24,26 @@ app.config["ANNASETU_ENDPOINTS"] = {
     "schemes": "government_schemes",
 }
 
-app.secret_key = "my-secret-key"
+app.secret_key = os.environ.get("SECRET_KEY", "default_secret_key_123")
 
-SENDER_EMAIL = "smart.dustbin.service@gmail.com"
+SENDER_EMAIL = os.environ.get("SENDER_EMAIL")
+SENDER_PASSWORD = os.environ.get("SENDER_PASSWORD")
 
-SENDER_PASSWORD = "mizn jpba ubfs luid"
 
-DATABASE_CONFIG = dict(
-    host="localhost",
-    user="root",
-    password="123456",
-    database="agriconnect"
+database_url = os.environ.get("DATABASE_URL")
+
+if not database_url:
+    raise ValueError("DATABASE_URL environment variable is missing!")
+
+db_url = urlparse(database_url)
+
+db = mysql.connector.connect(
+    host=db_url.hostname,
+    user=unquote(db_url.username or "root"),
+    password=unquote(db_url.password or ""),
+    database=db_url.path.lstrip("/"),
+    port=int(db_url.port or 3306)
 )
-
-db = mysql.connector.connect(**DATABASE_CONFIG)
-
 UPLOAD_FOLDER = os.path.join(
     app.root_path,
     "static",
