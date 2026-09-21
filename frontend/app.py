@@ -9,6 +9,7 @@ import smtplib
 from email.message import EmailMessage
 import mysql.connector
 import requests
+from urllib.parse import urlparse
 
 from forecast import forecast_demand
 from locations import LOCATIONS
